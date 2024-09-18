@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
-from db import engine
+from config.db import engine
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -13,8 +13,10 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(255), nullable=False)
     chat_id = Column(String(255), nullable=False)
-    nickname = Column(String(255), nullable=False)
+    username = Column(String(255), nullable=False)
     score = Column(Integer, default=0)
+
+    messages = relationship('Message', back_populates='user')
 
     __table_args__ = (UniqueConstraint('user_id', 'chat_id', name='unique_user_chat'),)
 
@@ -25,6 +27,7 @@ class Chat(Base):
     chat_id = Column(String(255), primary_key=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    last_reset = Column(DateTime, nullable=True)
 
 
 class Message(Base):
@@ -32,8 +35,9 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    is_positive = Column(Boolean, default=True)
-    message = Column(Text, nullable=False)
+    points = Column(Integer, nullable=False)
+    message = Column(String(255), nullable=True)
+    from_username = Column(String(255), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
