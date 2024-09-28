@@ -1,0 +1,1 @@
+awaiting_count_of_point = dict()

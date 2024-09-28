@@ -22,6 +22,22 @@ user_odd_points = [
     '$nickname$, у тебя убрали $count$ $case$. Работай над собой!',
 ]
 
+hello_message = [
+    'Спасибо за добавление в группу! Теперь мы будем внимательно следить за вашими Е-баллами <3'
+]
+
+
+def get_user_no_chats_message():
+    return 'У вас нет доступных чатов'
+
+
+def get_allowed_only_in_private_chat_message():
+    return 'Эта команда доступна только в личных сообщениях с ботом!'
+
+
+def get_user_hello_message():
+    return random.choice(hello_message)
+
 
 def get_user_not_found_message(username):
     return random.choice(user_not_found).replace('$nickname$', username)

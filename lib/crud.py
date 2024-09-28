@@ -6,18 +6,18 @@ from lib.helpers import format_date, get_case
 from lib.classes.AutoRefreshTTLCache import user_cache
 
 
-def add_user(user_id, chat_id, username, score=0):
+def add_user(telegram_user_id, chat_id, username, score=0):
     """
     Добавляем пользователя в базу данных
 
-    :param user_id:
+    :param telegram_user_id:
     :param chat_id:
     :param username:
     :param score:
     :return:
     """
     try:
-        user = User(user_id=user_id, chat_id=chat_id, username=username, score=score)
+        user = User(telegram_user_id=telegram_user_id, chat_id=chat_id, username=username, score=score)
         session.add(user)
         session.commit()
     except Exception as e:
@@ -86,22 +86,22 @@ def check_user_exist(chat_id, username):
         log_error(e)
 
 
-def check_user_exist_by_user_id(chat_id, user_id):
+def check_user_exist_by_telegram_user_id(chat_id, telegram_user_id):
     """
-    Проверяем знаем ли мы пользователя в этом чате по user_id
+    Проверяем знаем ли мы пользователя в этом чате по telegram_user_id
 
     :param chat_id:
-    :param user_id:
+    :param telegram_user_id:
     :return:
     """
-    cache_key = f"user_exist_{chat_id}_{user_id}"
+    cache_key = f"user_exist_{chat_id}_{telegram_user_id}"
     result = user_cache.get(cache_key)
 
     if result is not None:
         return result
 
     try:
-        user = session.query(User).filter_by(user_id=user_id, chat_id=chat_id).first()
+        user = session.query(User).filter_by(telegram_user_id=telegram_user_id, chat_id=chat_id).first()
         result = bool(user)
 
         if result:
@@ -238,19 +238,19 @@ def get_all_user_messages(chat_id, user_id):
         return "Пользователь или чат не найдены."
 
 
-def add_message(chat_id, user_id, message_text, from_username, points):
+def add_message(chat_id, telegram_user_id, message_text, from_username, points):
     """
     Добавляет сообщение для пользователя в чате.
 
     :param from_username:
     :param chat_id:
-    :param user_id:
+    :param telegram_user_id:
     :param message_text:
     :param points:
     :return:
     """
     # Получаем пользователя в указанном чате
-    user = session.query(User).filter_by(chat_id=chat_id, user_id=user_id).first()
+    user = session.query(User).filter_by(chat_id=chat_id, telegram_user_id=telegram_user_id).first()
 
     # Если пользователь существует, добавляем сообщение
     if user:
@@ -264,8 +264,6 @@ def add_message(chat_id, user_id, message_text, from_username, points):
         # Добавляем новое сообщение в сессию и сохраняем
         session.add(new_message)
         session.commit()
-
-        return f"Сообщение '{message_text}' добавлено для пользователя {user_id} в чате {chat_id}."
 
 
 def get_user_id_from_nickname(chat_id, username):
@@ -311,3 +309,13 @@ def check_chat_exist(chat_id):
         user_cache.set(cache_key, True)
 
     return is_exists
+
+
+def can_manage_chat(chat_id, telegram_user_id):
+    """
+    Проверяем является ли пользователь менеджером группы
+
+    :param chat_id:
+    :param user_id:
+    :return:
+    """
