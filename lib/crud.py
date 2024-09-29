@@ -4,6 +4,8 @@ import datetime
 from lib.errors import log_error
 from lib.helpers import format_date, get_case
 from lib.classes.AutoRefreshTTLCache import user_cache
+from app.bot_phrases import get_clear_chat_message, get_no_user_found_message, get_user_or_chat_no_found_message, get_no_messages_found_message
+from sqlalchemy import func, case
 
 
 def add_user(telegram_user_id, chat_id, username, score=0):
@@ -43,15 +45,16 @@ def update_user_score(chat_id, username, score=1):
         log_error(e)
 
 
-def add_chat(chat_id):
+def add_chat(chat_id, chat_name):
     """
     Добавляем чат в базу данных
 
     :param chat_id:
+    :pararm chat_name
     :return:
     """
     try:
-        chat = Chat(chat_id=chat_id)
+        chat = Chat(chat_id=chat_id, chat_name=chat_name)
         session.add(chat)
         session.commit()
     except Exception as e:
@@ -125,7 +128,7 @@ def clear_chat_score(chat_id):
         session.query(User).filter_by(chat_id=chat_id).update({User.score: 0})
         chat.last_reset = datetime.datetime.now()
         session.commit()
-        return "Теперь у всех очищены Е-баллы"
+        return get_clear_chat_message()
 
 
 def get_chat_ranking(chat_id):
@@ -135,15 +138,44 @@ def get_chat_ranking(chat_id):
     :param chat_id:
     :return:
     """
+    # Получить последний reset для данного чата
+    chat = session.query(Chat).filter_by(chat_id=chat_id).first()
+    last_reset = chat.last_reset if chat else None
+
+    # Найти топ-10 пользователей по текущему количеству баллов
     users = session.query(User).filter_by(chat_id=chat_id).order_by(User.score.desc()).limit(10).all()
 
-    if not users or users[0].score == 0:
-        return "В чате пока нет E-балльников."
+    if not users:
+        return get_no_user_found_message()
 
+    # Извлекаем ID пользователей из топ-10
+    user_ids = [user.id for user in users]
+
+    # Запрос на получение всех сообщений для этих пользователей после последней очистки, одним запросом
+    messages_after_reset = session.query(
+        Message.user_id,
+        func.sum(case((Message.points > 0, Message.points), else_=0)).label("total_added"),
+        func.sum(case((Message.points < 0, Message.points), else_=0)).label("total_subtracted")
+    ).filter(
+        Message.user_id.in_(user_ids),
+        Message.created_at > last_reset if last_reset else True
+    ).group_by(Message.user_id).all()
+
+    # Преобразование сообщений в словарь для быстрого доступа
+    messages_summary = {msg.user_id: (msg.total_added or 0, msg.total_subtracted or 0) for msg in messages_after_reset}
+
+    # Формирование рейтинга
     ranking = []
     for idx, user in enumerate(users, start=1):
+        # Извлекаем добавленные и отнятые баллы для текущего пользователя
+        total_added, total_subtracted = messages_summary.get(user.id, (0, 0))
+
         score_word = get_case(user.score)
-        ranking.append(f"{idx}. @{user.username} - {user.score} {score_word}")
+
+        ranking.append(
+            f"{idx}. @{user.username} - текущее количество: {user.score} {score_word}; "
+            f"\nДобавлено: +{total_added}; \nОтнято: {total_subtracted};"
+        )
 
     return "\n".join(ranking)
 
@@ -172,7 +204,7 @@ def get_user_messages(chat_id, user_id):
 
         if messages:
             message_list = [
-                f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message.strip() else '**без комментария**'} от {message.from_username}"
+                f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
                 for message in messages]
             result = f"Общий счет пользователя: {user.score}"
             if message_list:
@@ -180,9 +212,9 @@ def get_user_messages(chat_id, user_id):
                     message_list)
             return result
         else:
-            return "Нет сообщений после последней очистки."
+            return get_no_messages_found_message()
     else:
-        return "Пользователь или чат не найдены."
+        return get_user_or_chat_no_found_message()
 
 
 def get_all_user_messages(chat_id, user_id):
@@ -219,10 +251,10 @@ def get_all_user_messages(chat_id, user_id):
 
         # Формируем вывод сообщений
         recent_message_list = [
-            f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message.strip() else '**без комментария**'} от {message.from_username}"
+            f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
             for message in recent_messages]
         older_message_list = [
-            f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message.strip() else '**без комментария**'} от {message.from_username}"
+            f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
             for message in older_messages]
 
         result = f"Общий счет пользователя: {user.score}\n"
@@ -235,7 +267,7 @@ def get_all_user_messages(chat_id, user_id):
 
         return result
     else:
-        return "Пользователь или чат не найдены."
+        return get_user_or_chat_no_found_message()
 
 
 def add_message(chat_id, telegram_user_id, message_text, from_username, points):
@@ -311,11 +343,50 @@ def check_chat_exist(chat_id):
     return is_exists
 
 
-def can_manage_chat(chat_id, telegram_user_id):
+def can_manage_chat(chat_id, telegram_user_id, bot):
     """
-    Проверяем является ли пользователь менеджером группы
+    Проверяем может ли пользователь управлять группой
 
     :param chat_id:
-    :param user_id:
+    :param telegram_user_id:
+    :param bot: Чтобы понять является ли админом
     :return:
     """
+    cache_key = f"can_manage_chat_{chat_id}_{telegram_user_id}"
+    cache_value = user_cache.get(cache_key)
+
+    if cache_value:
+        return True
+
+    user = session.query(User).filter_by(chat_id=chat_id).first()
+    if user.is_manager:
+        user_cache.set(cache_key, True)
+        return True
+    admins = bot.get_chat_administrators(chat_id)
+    for admin in admins:
+        if admin.user.id == telegram_user_id:
+            user_cache.set(cache_key, True)
+            return True
+    return False
+
+
+def can_add_multiple_points(chat_id, telegram_user_id, bot):
+    """
+    Проверяем или пользователь может добавлять несколько баллов
+
+    :param chat_id:
+    :param telegram_user_id:
+    :param bot:
+    :return:
+    """
+    cache_key = f"chat_send_few_carma_{chat_id}"
+    setting = user_cache.get(cache_key)
+
+    if setting == 'all':
+        return True
+
+    chat = session.query(Chat).filter_by(chat_id=chat_id).first()
+    if chat.send_few_carma == 'all':
+        user_cache.set(cache_key, 'all')
+        return True
+    return can_manage_chat(chat_id, telegram_user_id, bot)

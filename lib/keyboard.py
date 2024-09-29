@@ -4,6 +4,7 @@ from config.db import session
 from app.bot_phrases import get_user_no_chats_message, get_user_odd_point_message, get_user_add_point_message
 from lib.crud import update_user_score, add_message
 from lib.state import awaiting_count_of_point
+from lib.classes.AutoRefreshTTLCache import user_cache
 import re
 
 
@@ -47,7 +48,7 @@ def bot_keyboard_buttons_handler(call, bot):
     bot.answer_callback_query(call.id)  # Сообщаем Telegram, что запрос был обработан
 
 
-def get_start_keyboard_markup():
+def get_settings_keyboard_markup():
     """
     Кнопки действий
     
@@ -112,10 +113,13 @@ def get_chats_keyboard_markup(telegram_user_id, func_name, bot, should_be_manage
     :return: 
     """
     if should_be_manager:
-        all_user_chats = session.query(Chat).join(User, User.chat_id == Chat.chat_id).filter(
+        all_user_chats = session.query(Chat, User).join(User, User.chat_id == Chat.chat_id).filter(
             User.telegram_user_id == telegram_user_id).all()
         user_chats = []
-        for chat in all_user_chats:
+        for chat, user in all_user_chats:
+            if user.is_manager:
+                user_chats.append(chat)
+                continue
             admins = bot.get_chat_administrators(chat.chat_id)
             for admin in admins:
                 if admin.user.id == telegram_user_id:
@@ -189,11 +193,14 @@ def set_chat_settings(call, bot):
     """
     chat_id = call.data[5:]
     chat = session.query(Chat).filter_by(chat_id=chat_id).first()
+    cache_key = f"chat_send_few_carma_{chat_id}"
 
     if call.data.startswith('cs_a_'):
         chat.send_few_carma = 'all'
+        user_cache.set(cache_key, 'all')
     elif call.data.startswith('cs_m_'):
         chat.send_few_carma = 'managers'
+        user_cache.set(cache_key, 'managers')
     session.commit()
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                           text='Настройки чата изменены!')

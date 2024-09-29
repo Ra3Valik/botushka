@@ -1,57 +1,251 @@
 import random
 from lib.helpers import get_case
 
-user_not_found = [
-    'Е-балльник @$nickname$ не найден в этом чате :(\nПускай только покажется в этом чате!',
-    'Да кто такой этот ваш $nickname$?!\nПокажись! Кто бы ты не был.'
+user_not_found_single = [
+    'Да кто такой этот ваш $nickname$?!\nПокажись! Кто бы ты ни был.',
+    'Никогда не слышал о $nickname$! Где ты прячешься?',
+    'Хмм... $nickname$? Это имя мне незнакомо.',
+    'Похоже, $nickname$ где-то потерялся. Его здесь нет.',
+    '$nickname$, кто ты такой? Не вижу тебя в списке.',
+    'Кто такой $nickname$? Не могу найти его!',
+    'Я не могу найти $nickname$! Он точно существует?',
+    'Хей, $nickname$! Ты кто такой? Покажись!',
+    'Упс, не вижу тут $nickname$... Попробуй ещё раз.',
+    '$nickname$? Что-то я не нахожу его... Может, попробуем снова?',
 ]
 
-user_add_points = [
+user_not_found_multi = [
+    'Я не могу найти этих пользователей: $nickname$. Уверены, что они существуют?',
+    'Кажется, $nickname$ пропали из списка. Проверьте, всё ли правильно!',
+    'Пользователей с именами $nickname$ не нашлось. Может, ошибка в написании?',
+    'Где прячутся $nickname$? Я их не вижу в системе!',
+    'Я не могу найти $nickname$. Похоже, они не зарегистрированы.',
+    'Упс! $nickname$ не обнаружены. Убедитесь, что всё указано верно.',
+    'Пользователи $nickname$ отсутствуют в базе. Возможно, они ещё не добавлены.',
+    '$nickname$? Таких пользователей здесь нет. Попробуйте уточнить данные.',
+    '$nickname$ не найдены! Похоже, их здесь не было.',
+    'Хмм... $nickname$ не существуют в системе. Проверьте, правильно ли указаны имена.'
+]
+
+user_add_points_single = [
     '$nickname$ получил $count$ $case$!',
     '$nickname$ теперь имеет на $count$ $case$ больше!',
     '$nickname$, поздравляю! Тебе начислено $count$ $case$!',
     '$nickname$ теперь в плюсе на $count$ $case$!',
     '$nickname$ заработал $count$ $case$! Отлично!',
+    'Ого, $nickname$ получил ещё $count$ $case$!',
+    'Так держать, $nickname$! Плюс $count$ $case$ на твой счёт!',
+    'Отличная работа, $nickname$! Получай свои $count$ $case$!',
+    'Ура, $nickname$! Теперь у тебя на $count$ $case$ больше!',
+    'Круто, $nickname$! Твои $count$ $case$ ждут тебя!',
 ]
 
-user_odd_points = [
+user_add_points_multi = [
+    'Поздравляем $nickname$ с получением $count$ $case$!',
+    '$nickname$, вы молодцы! Получаете $count$ $case$!',
+    'Команда $nickname$ получает $count$ $case$! Отличный результат!',
+    'Вау, $nickname$! Ваши $count$ $case$ добавлены.',
+    '$nickname$, каждый из вас получил по $count$ $case$!',
+    'Великолепно! $nickname$ теперь с $count$ $case$.',
+    'Прекрасная новость! $nickname$ зарабатывают $count$ $case$!',
+    'Ура, $nickname$! В ваш актив добавлено $count$ $case$.',
+    'Командный дух в деле! $nickname$ — вам начислено $count$ $case$!',
+    'Аплодисменты! $nickname$ получают $count$ $case$!',
+]
+
+user_odd_points_single = [
     '$nickname$ потерял $count$ $case$. Надеюсь, всё не так плохо.',
     '$nickname$, минус $count$ $case$. Постарайся больше не повторять!',
     '$nickname$ снижено количество $case$ на $count$. Будь осторожнее!',
     '$nickname$ уменьшилось количество $case$ на $count$. Исправим это!',
     '$nickname$, у тебя убрали $count$ $case$. Работай над собой!',
+    'О нет, $nickname$, ты потерял $count$ $case$!',
+    'Эх, $nickname$, минус $count$ $case$. Не огорчайся!',
+    '$nickname$, ты лишился $count$ $case$. Соберись!',
+    'Упс, $nickname$, у тебя забрали $count$ $case$. Не переживай!',
+    'Печально, $nickname$, ты потерял $count$ $case$! Держись!',
+]
+
+user_odd_points_multi = [
+    'Да что это такое?! $nickname$ теряют $count$ $case$!',
+    'Печально! $nickname$ потеряли $count$ $case$.',
+    'Упс! $nickname$ лишаются $count$ $case$. Что случилось?',
+    'Это не лучший день для $nickname$ — потеря $count$ $case$!',
+    '$nickname$, минус $count$ $case$... Надеюсь, вы вернёте их!',
+    'Эх, $nickname$! Похоже, $count$ $case$ исчезли.',
+    'Плохие новости: $nickname$ потеряли $count$ $case$.',
+    'Жалко, $nickname$! Минус $count$ $case$ на ваш счёт.',
+    'Беда! $nickname$ потеряли $count$ $case$. Надеюсь, это временно!',
+    'О нет, $nickname$! Потеря $count$ $case$. Возвращайте их обратно!',
 ]
 
 hello_message = [
-    'Спасибо за добавление в группу! Теперь мы будем внимательно следить за вашими Е-баллами <3'
+    'Спасибо за добавление в группу! Теперь мы будем внимательно следить за вашими Е-баллами <3',
+    'Привет всем! Теперь я слежу за вашими Е-баллами!',
+    'Рад знакомству! Ваши Е-баллы под моим присмотром.',
+    'Привет! Я буду контролировать все ваши Е-баллы. Не подведите!',
+    'Спасибо за приём! Теперь я здесь, чтобы следить за Е-баллами.',
+    'Здравствуйте! Я ваш новый помощник по Е-баллам!',
+    'Всем привет! Внимательно слежу за каждым вашим Е-баллом!',
+    'Привет, группа! Я здесь, чтобы следить за вашими Е-баллами!',
+    'Спасибо, что приняли! Я готов контролировать ваши Е-баллы.',
+    'Привет! Е-баллы теперь под строгим наблюдением!',
+]
+
+no_chats = [
+    'У вас нет доступных чатов.',
+    'Похоже, у вас нет чатов, к которым я могу присоединиться.',
+    'Нет доступных чатов на данный момент.',
+    'Упс! Я не вижу никаких чатов.',
+    'Похоже, чатов нет... Что будем делать?',
+    'У вас не найдено ни одного чата.',
+    'Нет доступных чатов для вас.',
+    'Увы, у вас нет ни одного чата.',
+    'Я не могу найти ни один чат.',
+    'Доступные чаты отсутствуют.',
+]
+
+only_in_private = [
+    'Эта команда доступна только в личных сообщениях с ботом!',
+    'Пожалуйста, используйте эту команду в личных сообщениях.',
+    'Команда работает только в личке.',
+    'Используйте команду в личных сообщениях с ботом!',
+    'Напишите мне в личку для этой команды.',
+    'Команда доступна только в личных чатах.',
+    'Это только для личных сообщений, не для групп.',
+    'Команда работает только в личных диалогах.',
+    'Используйте эту команду в личке!',
+    'Пожалуйста, обратитесь ко мне в личные сообщения!',
+]
+
+clear_chat = [
+    'Теперь у всех очищены Е-баллы.',
+    'Все Е-баллы обнулены!',
+    'Е-баллы очищены для всех участников.',
+    'Очистка завершена! Все Е-баллы обнулены.',
+    'Е-баллы сброшены. Начнём заново!',
+    'Все Е-баллы удалены.',
+    'Участники теперь без Е-баллов!',
+    'Очистка прошла успешно. Е-баллы удалены.',
+    'Е-баллы теперь на нуле у всех.',
+    'Все Е-баллы в чате обнулены.',
+]
+
+no_user_found = [
+    'Нет людей с Е - баллами.',
+    'Я не нашёл пользователей с Е - баллами.',
+    'Никто пока не заработал Е - баллы.',
+    'Увы, нет пользователей с Е - баллами.',
+    'Нету людей с накопленными Е - баллами.',
+    'Е - баллы ни у кого не найдены.',
+    'Пользователей с Е - баллами нет.',
+    'Нету обладателей Е - баллов.',
+    'Никаких Е - баллов пока не видно.',
+    'Я не вижу ни одного пользователя с Е - баллами.',
+]
+
+user_or_chat_no_found = [
+    'Пользователь или чат не найдены.',
+    'Я не нашёл пользователя или чат.',
+    'Чат или пользователь не обнаружены.',
+    'Пользователь или чат не видны.',
+    'Чат или пользователь не определены.',
+]
+
+no_messages_found = [
+    'Нет сообщений после последней очистки.',
+    'Сообщений с момента очистки нет.',
+    'Никаких новых сообщений не найдено.',
+    'Сообщений после очистки не видно.',
+    'Нету новых сообщений.',
+    'Сообщений после очистки нет.',
+    'Никаких сообщений не появилось.',
+    'Нет ни одного сообщения.',
+    'Похоже, сообщений нет.',
+    'Сообщения не найдены.',
+]
+
+only_one_point = [
+    'Вы можете изменять количество баллов только на один за раз. Изменять больше могут только менеджеры чата.',
+    'Изменение баллов больше чем на один доступно только менеджерам. Попробуйте изменить на 1 балл.',
+    'Вы можете добавлять или убирать только по одному баллу. Менеджерам доступно изменение на большее количество.',
+    'Изменение баллов на более чем один разрешено только для менеджеров. Остальные могут использовать шаг в 1 балл.',
+    'Пожалуйста, изменяйте баллы по одному. Только менеджеры могут изменять сразу несколько.',
+    'Вы можете изменять баллы только по одному за раз. Изменение на большее количество доступно лишь менеджерам чата.',
+    'Изменение баллов на больше чем 1 разрешено только менеджерам чата. Пожалуйста, изменяйте по одному.',
+    'Чтобы изменять баллы на большее количество, нужно быть менеджером чата. Для остальных доступно только по 1 за раз.',
+    'Только менеджеры могут изменять баллы сразу на несколько. Попробуйте добавить или убрать 1 балл.',
+    'Изменение баллов на большее количество доступно только менеджерам. Для обычных пользователей доступен шаг в 1 балл.',
 ]
 
 
+def get_only_one_point_message():
+    return random.choice(only_one_point)
+
+
+def get_no_messages_found_message():
+    return random.choice(no_messages_found)
+
+
+def get_user_or_chat_no_found_message():
+    return random.choice(user_or_chat_no_found)
+
+
+def get_no_user_found_message():
+    return random.choice(no_user_found)
+
+
+def get_clear_chat_message():
+    return random.choice(clear_chat)
+
+
 def get_user_no_chats_message():
-    return 'У вас нет доступных чатов'
+    return random.choice(no_chats)
 
 
 def get_allowed_only_in_private_chat_message():
-    return 'Эта команда доступна только в личных сообщениях с ботом!'
+    return random.choice(only_in_private)
 
 
 def get_user_hello_message():
     return random.choice(hello_message)
 
 
-def get_user_not_found_message(username):
-    return random.choice(user_not_found).replace('$nickname$', username)
+def get_user_not_found_message(mentions):
+    if isinstance(mentions, str) or len(mentions) == 1:
+        if len(mentions) == 1:
+            mentions = mentions[0]
+        return random.choice(user_not_found_single).replace('$nickname$', mentions)
+    else:
+        mentions = ", ".join(mentions)
+        return random.choice(user_not_found_multi).replace('$nickname$', mentions)
 
 
-def get_user_add_point_message(username, count):
+
+def get_user_add_point_message(mentions, count):
     case = get_case(count)
     count_word = str(count)
-    return random.choice(user_add_points).replace('$nickname$', username).replace('$count$', count_word).replace(
-        '$case$', case)
+    if isinstance(mentions, str) or len(mentions) == 1:
+        if len(mentions) == 1:
+            mentions = mentions[0]
+        return random.choice(user_add_points_single).replace('$nickname$', mentions).replace('$count$', count_word).replace(
+            '$case$', case)
+    else:
+        mentions = ", ".join(mentions)
+        return random.choice(user_add_points_multi).replace('$nickname$', mentions).replace('$count$', count_word).replace(
+            '$case$', case)
 
 
-def get_user_odd_point_message(username, count):
+def get_user_odd_point_message(mentions, count):
     case = get_case(count)
     count_word = str(count)
-    return random.choice(user_odd_points).replace('$nickname$', username).replace('$count$', count_word).replace(
-        '$case$', case)
+
+    if isinstance(mentions, str) or len(mentions) == 1:
+        if len(mentions) == 1:
+            mentions = mentions[0]
+        return random.choice(user_odd_points_single).replace('$nickname$', mentions).replace('$count$', count_word).replace(
+            '$case$', case)
+    else:
+        mentions = ", ".join(mentions)
+        return random.choice(user_odd_points_multi).replace('$nickname$', mentions).replace('$count$', count_word).replace(
+            '$case$', case)

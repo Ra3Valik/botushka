@@ -1,12 +1,16 @@
-from lib.crud import add_user, update_user_score, add_chat, check_user_exist, check_user_exist_by_telegram_user_id, add_message, \
-    get_user_id_from_nickname, clear_chat_score, get_chat_ranking, get_user_messages, get_all_user_messages, check_chat_exist
-from lib.helpers import env_variables, is_integer
-from app.bot_phrases import get_user_not_found_message, get_user_odd_point_message, get_user_add_point_message, get_user_hello_message, get_user_no_chats_message, get_allowed_only_in_private_chat_message
 import telebot
+from lib.crud import add_user, update_user_score, add_chat, check_user_exist, check_user_exist_by_telegram_user_id, add_message, \
+    get_user_id_from_nickname, clear_chat_score, get_chat_ranking, get_user_messages, get_all_user_messages, check_chat_exist, \
+    can_add_multiple_points
+from lib.helpers import env_variables, is_integer
+from app.bot_phrases import get_user_not_found_message, get_user_odd_point_message, get_user_add_point_message, \
+    get_user_hello_message, get_user_no_chats_message, get_allowed_only_in_private_chat_message, \
+    get_only_one_point_message
 from telebot.types import BotCommand
 import re
-from lib.keyboard import get_chats_keyboard_markup, get_start_keyboard_markup, bot_keyboard_buttons_handler, maybe_change_points
+from lib.keyboard import get_settings_keyboard_markup, bot_keyboard_buttons_handler, maybe_change_points
 from lib.state import awaiting_count_of_point
+from lib.errors import log_error
 
 bot = telebot.TeleBot(env_variables.get('TOKEN'))
 
@@ -42,7 +46,7 @@ def on_new_chat_member(message):
                 message_text
             )
             if (not check_chat_exist(message.chat.id)):
-                add_chat(message.chat.id)
+                add_chat(message.chat.id, message.chat.title)
         elif (not check_user_exist_by_telegram_user_id(message.chat.id, new_member.id)):
             username = new_member.username
             if username:
@@ -67,7 +71,7 @@ def start_message(message):
     chat_type = message.chat.type
 
     if chat_type == 'private':
-        markup = get_start_keyboard_markup()
+        markup = get_settings_keyboard_markup()
         if markup:
             bot.send_message(message.chat.id, "Выберите кнопку:", reply_markup=markup)
         else:
@@ -114,7 +118,7 @@ def handle_get_user_score(message):
         else:
             bot.reply_to(message, get_user_not_found_message(username))
     except Exception as e:
-        bot.reply_to(message, f"Произошла ошибка: {str(e)}")
+        log_error(f"handle_get_user_score {str(e)}")
 
 
 # Команда для вывода всех сообщений пользователя
@@ -142,7 +146,7 @@ def handle_get_user_score_history(message):
         else:
             bot.reply_to(message, get_user_not_found_message(username))
     except Exception as e:
-        bot.reply_to(message, f"Произошла ошибка: {str(e)}")
+        log_error(f"handle_get_user_score_history {str(e)}")
 
 
 # Обработчик всех сообщений
@@ -160,9 +164,9 @@ def handle_message(message):
         return
 
     # Проверяем автора сообщения на наличие его в базе
-    if (not check_user_exist_by_telegram_user_id(chat_id, telegram_user_id)):
+    if not check_user_exist_by_telegram_user_id(chat_id, telegram_user_id):
         username = message.from_user.username
-        if username:
+        if username and message.from_username.is_bot == False:
             add_user(telegram_user_id, chat_id, username, 0)
 
     # Если сообщение содержит собаку, то скорее всего кто-то пытается баллы изменить
@@ -186,6 +190,12 @@ def handle_message(message):
                 else:
                     number = int(m[1])  # Если это обычное число
 
+        # Проверяем или пользователь может добавлять более одного балла в этой беседе
+        if (number > 1 or number < -1) and not can_add_multiple_points(chat_id, telegram_user_id, bot):
+            # Отправляем сообщение что пользователь может изменять кол-во баллов только на один за раз
+            bot.reply_to(message, get_only_one_point_message())
+            return
+
         # Очистим сообщение от всех упоминаний
         message_text = message.text
         for mention in mentions:
@@ -196,13 +206,15 @@ def handle_message(message):
         if remaining_message_match:
             remaining_message = remaining_message_match.group(2)
 
-        if number or number == 0:
+        if number == 0:
             return
 
+        # Сортируем пользователей на существующих и не существующих
         not_founded_user = []
         founded_user = []
         for mention in mentions:
             if check_user_exist(chat_id, mention):
+                # Если пользователь найден, то сразу добавим ему баллы
                 update_user_score(chat_id, mention, number)
                 add_message(chat_id, telegram_user_id, remaining_message, message.from_user.username, number)
                 founded_user.append(mention)
@@ -210,16 +222,17 @@ def handle_message(message):
                 not_founded_user.append(mention)
                 continue
 
+        # Отправляем сообщения
         if not_founded_user:
-            # НАДО ОТПРАВИТЬ СООБЩЕНИЕ ЧТО НЕ НАШЁЛ ЭТИХ ПОЛЬЗОВАТЕЛЕЙ
-            bot.reply_to(message, get_user_add_point_message('mention', number))
+            # Сообщение о том что некоторые или все пользователи были не найдены
+            bot.reply_to(message, get_user_not_found_message(not_founded_user))
         if founded_user:
             if number > 0:
-                # ПРЕДУСМОТРЕТЬ ЧТО МЕНТНТИОНС МОЖЕТ БЫТЬ МНОГО
-                bot.reply_to(message, get_user_add_point_message(mentions, number))
+                # Сообщение о добавлении баллов
+                bot.reply_to(message, get_user_add_point_message(founded_user, number))
             elif number < 0:
-                # ПРЕДУСМОТРЕТЬ ЧТО МЕНТНТИОНС МОЖЕТ БЫТЬ МНОГО
-                bot.reply_to(message, get_user_odd_point_message(mentions, number))
+                # Сообщение о отнятии баллов
+                bot.reply_to(message, get_user_odd_point_message(founded_user, number))
 
 
 bot.infinity_polling()
