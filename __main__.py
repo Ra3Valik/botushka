@@ -166,7 +166,7 @@ def handle_message(message):
     # Проверяем автора сообщения на наличие его в базе
     if not check_user_exist_by_telegram_user_id(chat_id, telegram_user_id):
         username = message.from_user.username
-        if username and message.from_username.is_bot == False:
+        if username and message.from_user.is_bot == False:
             add_user(telegram_user_id, chat_id, username, 0)
 
     # Если сообщение содержит собаку, то скорее всего кто-то пытается баллы изменить
