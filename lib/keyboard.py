@@ -146,20 +146,24 @@ def get_chats_keyboard_markup(telegram_user_id, func_name, bot, should_be_manage
         return False
 
 
-def get_users_keyboard_markup(chat_id, is_manager, func_name, all_users=False):
+def get_users_keyboard_markup(chat_id, is_manager, func_name, exclude_user_id=None, all_users=False):
     """
     Выводит пользователей чата
 
+    :param chat_id: ID чата
+    :param is_manager: Должны ли пользователи быть менеджерами?
+    :param func_name: Префикс для callback_data
+    :param exclude_user_id: ID пользователя, которого нужно исключить
     :param all_users: Вывести всех пользователей
-    :param chat_id: 
-    :param is_manager: должны ли пользователи быть менеджерами?
-    :param func_name: Префикс по которому мы определяем что делать
-    :return: 
+    :return: InlineKeyboardMarkup или False
     """
     if all_users:
         users = session.query(User).filter_by(chat_id=chat_id).all()
     else:
         users = session.query(User).filter_by(chat_id=chat_id, is_manager=is_manager).all()
+
+    if exclude_user_id:
+        users = [user for user in users if str(user.telegram_user_id) != str(exclude_user_id)]
 
     if users:
         markup = InlineKeyboardMarkup()
@@ -247,15 +251,16 @@ def select_managers_message(call, bot):
     """
     action = call.data
     chat_id = action[3:]
+    current_user_id = call.from_user.id
     if action.startswith('am_'):
-        markup = get_users_keyboard_markup(chat_id, False, 'fam')
+        markup = get_users_keyboard_markup(chat_id, False, 'fam', current_user_id)
         if not markup:
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text='Нет пользователей которых можно сделать менеджерами.')
             return
         message_text = 'Выберите пользователя, которого хотите сделать менеджером:'
     elif action.startswith('dm_'):
-        markup = get_users_keyboard_markup(chat_id, True, 'fdm')
+        markup = get_users_keyboard_markup(chat_id, True, 'fdm', current_user_id)
         if not markup:
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                           text='Нет менеджеров.')
@@ -307,7 +312,8 @@ def select_user_for_changing_points(call, bot):
     :return:
     """
     chat_id = call.data[3:]
-    markup = get_users_keyboard_markup(chat_id, False, 'fap', True)
+    current_user_id = call.from_user.id
+    markup = get_users_keyboard_markup(chat_id, False, 'fap', current_user_id, True)
     if not markup:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text='Нет пользователей в этом чате.')
