@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UniqueConstraint, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, UniqueConstraint, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from config.db import engine
 from sqlalchemy.orm import relationship
@@ -39,7 +39,7 @@ class Message(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     points = Column(Integer, nullable=False)
-    message = Column(String(255), nullable=True)
+    message = Column(Text, nullable=True)
     from_username = Column(String(255), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

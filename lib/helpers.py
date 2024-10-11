@@ -33,6 +33,8 @@ def is_integer(num):
     :return:
     """
     try:
+        if num is None:
+            return False
         int(num)
         return True
     except ValueError:

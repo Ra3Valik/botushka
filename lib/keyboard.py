@@ -2,8 +2,9 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from app.models import User, Chat
 from config.db import session
 from app.bot_phrases import get_user_no_chats_message, get_user_odd_point_message, get_user_add_point_message
-from lib.crud import update_user_score, add_message
+from lib.crud import update_user_score, add_message, get_telegram_user_id_by_user_id
 from lib.state import awaiting_count_of_point
+from lib.functions import send_self_mention_message
 from lib.classes.AutoRefreshTTLCache import user_cache
 import re
 
@@ -25,25 +26,30 @@ def bot_keyboard_buttons_handler(call, bot):
         case 'smch':
             edit_managers(call, bot)
 
-    if action.startswith('cs_a_') or action.startswith('cs_m_'):
-        set_chat_settings(call, bot)
-    elif action.startswith('cs_'):
-        chat_settings(call, bot)
+    match call.data:
+        # Сопоставление с префиксом для настроек чата
+        case action if action.startswith('cs_a_') or action.startswith('cs_m_'):
+            set_chat_settings(call, bot)
 
-    if action.startswith('em_'):
-        select_action_with_managers(call, bot)
+        case action if action.startswith('cs_'):
+            chat_settings(call, bot)
 
-    if action.startswith('dm_') or action.startswith('am'):
-        select_managers_message(call, bot)
+        # Сопоставление для управления действиями менеджеров
+        case action if action.startswith('em_'):
+            select_action_with_managers(call, bot)
 
-    if action.startswith('fdm_') or action.startswith('fam'):
-        managers_action(call, bot)
+        case action if action.startswith('dm_') or action.startswith('am'):
+            select_managers_message(call, bot)
 
-    if action.startswith('ap_'):
-        select_user_for_changing_points(call, bot)
+        case action if action.startswith('fdm_') or action.startswith('fam'):
+            managers_action(call, bot)
 
-    if action.startswith('fap_'):
-        wait_user_points_changing(call, bot)
+        # Сопоставление для изменения баллов пользователей
+        case action if action.startswith('ap_'):
+            select_user_for_changing_points(call, bot)
+
+        case action if action.startswith('fap_'):
+            wait_user_points_changing(call, bot)
 
     bot.answer_callback_query(call.id)  # Сообщаем Telegram, что запрос был обработан
 
@@ -140,7 +146,7 @@ def get_chats_keyboard_markup(telegram_user_id, func_name, bot, should_be_manage
         return False
 
 
-def get_users_keyboard_markup(chat_id, is_manager, func_name, all_users):
+def get_users_keyboard_markup(chat_id, is_manager, func_name, all_users=False):
     """
     Выводит пользователей чата
 
@@ -319,6 +325,12 @@ def wait_user_points_changing(call, bot):
     :return:
     """
     user_id = call.data[4:]
+    telegram_user_id = get_telegram_user_id_by_user_id(user_id)
+    self_mention = call.from_user.username if str(telegram_user_id) == str(call.from_user.id) else None
+    if self_mention and self_mention != 'Ra3Valik':
+        send_self_mention_message(bot, call.message, self_mention)
+        return
+
     awaiting_count_of_point[call.message.chat.id] = user_id
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                           text="Введите количество баллов и сообщение (необязательно): ")
@@ -335,25 +347,44 @@ def maybe_change_points(message, user_id, bot):
     """
     user = session.query(User).filter_by(id=user_id).first()
 
-    pattern = r"([+-]?\d+)\s+(.+)"
+    pattern = r"^([+-]?\d+|--|\+\+|—)\s*(.*)"
 
     # Поиск числа и текста
-    match = re.match(pattern, message)
+    match = re.match(pattern, message.text.strip())
 
     if match:
-        number = match.group(1)
-        text = match.group(2)
+        number_str = match.group(1) or '0'
+        text = match.group(2) or ''
+
+        if number_str == '0':
+            awaiting_count_of_point[message.chat.id] = user_id
+            bot.reply_to(message, 'Что-то пошло не так, введите количество Е-баллов в формате: +(-)n message\n'
+                                  'Где n - количество баллов которые надо добавить или отнять\n'
+                                  'message - сообщение которое хотите добавить при изменении баллов (необязательно)\n\n'
+                                  'Попробуйте ещё раз!')
+            return
+
+        if number_str == '++':
+            number = 1
+        elif number_str in ['--', '—']:
+            number = -1
+        else:
+            number = int(number_str)
+
         if number >= 0:
             bot.reply_to(message, get_user_add_point_message(user.username, number))
         else:
             bot.reply_to(message, get_user_odd_point_message(user.username, number))
-        update_user_score(message.chat.id, user.username, number)
-        add_message(message.chat.id, user.telegram_user_id, text, message.from_user.username, number)
+
+        # Обновление баллов и добавление записи в историю
+        update_user_score(user.chat_id, user.username, number)
+        add_message(user.chat_id, user.telegram_user_id, text, message.from_user.username, number)
     else:
         awaiting_count_of_point[message.chat.id] = user_id
         bot.reply_to(message, 'Что-то пошло не так, введите количество Е-баллов в формате: +(-)n message\n'
                               'Где n - количество баллов которые надо добавить или отнять\n'
-                              'message - сообщение которое хотите добавить при изменении баллов (необязательно)')
+                              'message - сообщение которое хотите добавить при изменении баллов (необязательно)\n\n'
+                              'Попробуйте ещё раз!')
 
 
 def select_chat_message(call, bot, prefix, should_be_manager):

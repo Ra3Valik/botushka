@@ -204,7 +204,7 @@ def get_user_messages(chat_id, user_id):
 
         if messages:
             message_list = [
-                f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
+                f"{format_date(message.created_at)}: {'+{0}'.format(message.points) if message.points > 0 else f'{message.points}'} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
                 for message in messages]
             result = f"Общий счет пользователя: {user.score}"
             if message_list:
@@ -251,10 +251,10 @@ def get_all_user_messages(chat_id, user_id):
 
         # Формируем вывод сообщений
         recent_message_list = [
-            f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
+            f"{format_date(message.created_at)}: {'+{0}'.format(message.points) if message.points > 0 else f'{message.points}'} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
             for message in recent_messages]
         older_message_list = [
-            f"{format_date(message.created_at)}: {str(message.points)} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
+            f"{format_date(message.created_at)}: {'+{0}'.format(message.points) if message.points > 0 else f'{message.points}'} - {message.message if message.message and message.message.strip() else '**без комментария**'} от {message.from_username}"
             for message in older_messages]
 
         result = f"Общий счет пользователя: {user.score}\n"
@@ -274,11 +274,11 @@ def add_message(chat_id, telegram_user_id, message_text, from_username, points):
     """
     Добавляет сообщение для пользователя в чате.
 
-    :param from_username:
-    :param chat_id:
-    :param telegram_user_id:
-    :param message_text:
-    :param points:
+    :param chat_id: в каком чате
+    :param telegram_user_id: кому
+    :param message_text: сообщение
+    :param from_username: от кого
+    :param points: кол-во очков
     :return:
     """
     # Получаем пользователя в указанном чате
@@ -298,7 +298,7 @@ def add_message(chat_id, telegram_user_id, message_text, from_username, points):
         session.commit()
 
 
-def get_user_id_from_nickname(chat_id, username):
+def get_user_id_from_username(chat_id, username):
     """
     Возвращает user_id по имени пользователя в указанном чате.
 
@@ -319,6 +319,29 @@ def get_user_id_from_nickname(chat_id, username):
         user_cache.set(cache_key, user_id)
 
     return user_id
+
+
+def get_telegram_user_id_from_username(chat_id, username):
+    """
+    Возвращает telegram_user_id по имени пользователя в указанном чате.
+
+    :param chat_id:
+    :param username:
+    :return:
+    """
+    cache_key = f"telegram_user_id_{chat_id}_{username}"
+    telegram_user_id = user_cache.get(cache_key)
+
+    if telegram_user_id:
+        return telegram_user_id
+
+    user = session.query(User).filter_by(chat_id=chat_id, username=username).first()
+    telegram_user_id = user.telegram_user_id if user else None
+
+    if telegram_user_id:
+        user_cache.set(cache_key, telegram_user_id)
+
+    return telegram_user_id
 
 
 def check_chat_exist(chat_id):
@@ -358,7 +381,7 @@ def can_manage_chat(chat_id, telegram_user_id, bot):
     if cache_value:
         return True
 
-    user = session.query(User).filter_by(chat_id=chat_id).first()
+    user = session.query(User).filter_by(chat_id=chat_id, telegram_user_id=telegram_user_id).first()
     if user.is_manager:
         user_cache.set(cache_key, True)
         return True
@@ -390,3 +413,19 @@ def can_add_multiple_points(chat_id, telegram_user_id, bot):
         user_cache.set(cache_key, 'all')
         return True
     return can_manage_chat(chat_id, telegram_user_id, bot)
+
+
+def get_telegram_user_id_by_user_id(user_id):
+    """
+    Взять telegram_user_id зная его id
+
+    :param user_id: id пользоваталея в базе данных
+    :return: telegram_user_id
+    """
+    cache_key = f"get_telegram_user_id_by_user_id_{user_id}"
+    telegram_user_id = user_cache.get(cache_key)
+    if telegram_user_id:
+        return telegram_user_id
+    user = session.query(User).filter_by(id=user_id).first()
+    user_cache.set(cache_key, user.telegram_user_id)
+    return user.telegram_user_id
