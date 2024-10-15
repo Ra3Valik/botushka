@@ -18,13 +18,10 @@ bot = telebot.TeleBot(env_variables.get('TOKEN'))
 # Определяем команды
 commands = [
     BotCommand(command="/help", description="Помощь по командам"),
-    BotCommand(command="/clear_score", description="Очистить счёт Е-баллов"),
-    BotCommand(command="/top", description="Посмотреть счет пользователя"),
-    BotCommand(command="/get_user_score", description="Посмотреть счет пользователя"),
-    BotCommand(command="/get_user_score_history", description="Посмотреть историю изменения очков пользователя очков "
-                                                              "пользователя"),
-    BotCommand(command='/settings', description="Установить тех кто может управлять чатом (работает "
-                                                            "только в личных сообщениях с ботом)")
+    BotCommand(command="/clear_score", description="Сбросить счёт Е-баллов"),
+    BotCommand(command="/top", description="Топ пользователей по счёту"),
+    BotCommand(command="/get_user_score", description="Счёт пользователя"),
+    BotCommand(command='/settings', description="Настроить группы (только в лс)")
 ]
 
 # Устанавливаем команды в меню бота
@@ -59,11 +56,9 @@ def help_command(message):
     bot.reply_to(message, "Список команд:\n"
                           "/help - вывести список команд\n"
                           "/clear_score - очищает счёт всех пользователей\n"
-                          "/top - Выводит топ 10 пользователей по E-баллам\n"
+                          "/top - выводит топ 10 пользователей по E-баллам\n"
                           "/get_user_score - посмотреть счёт пользователя и историю его пополнения\n"
-                          "/get_user_score_history -  посмотреть счёт пользователя и историю его пополнения в т.ч. "
-                          "для уже очищенных очков\n\n"
-                          "/settings - Настройки бота и отправка кармы в личных сообщениях\n\n\n"
+                          "/settings - Настройки бота и отправка кармы, работает только в личных сообщениях\n\n\n"
                           "По всем вопросам, багам и предложением: @Ra3Valik")
 
 
@@ -123,31 +118,31 @@ def handle_get_user_score(message):
 
 
 # Команда для вывода всех сообщений пользователя
-@bot.message_handler(commands=['get_user_score_history'])
-def handle_get_user_score_history(message):
-    chat_id = str(message.chat.id)
-    # Считываем текст сообщения после команды
-    # Формат: /get_all_user_messages @username
-    try:
-        parts = message.text.split(maxsplit=1)
-        if len(parts) > 1:
-            mention = parts[1].strip()
-            match = re.match(r"@(\w+)", mention)
-            if not match:
-                username = message.from_user.username
-            else:
-                username = match.group(1)
-        else:
-            username = message.from_user.username
-
-        user_id = get_user_id_from_username(chat_id, username)
-        if user_id:
-            result = get_all_user_messages(chat_id, user_id)
-            send_long_message(bot, message, result)
-        else:
-            bot.reply_to(message, get_user_not_found_message(username))
-    except Exception as e:
-        log_error(f"handle_get_user_score_history {str(e)}")
+# @bot.message_handler(commands=['get_user_score_history'])
+# def handle_get_user_score_history(message):
+#     chat_id = str(message.chat.id)
+#     # Считываем текст сообщения после команды
+#     # Формат: /get_all_user_messages @username
+#     try:
+#         parts = message.text.split(maxsplit=1)
+#         if len(parts) > 1:
+#             mention = parts[1].strip()
+#             match = re.match(r"@(\w+)", mention)
+#             if not match:
+#                 username = message.from_user.username
+#             else:
+#                 username = match.group(1)
+#         else:
+#             username = message.from_user.username
+#
+#         user_id = get_user_id_from_username(chat_id, username)
+#         if user_id:
+#             result = get_all_user_messages(chat_id, user_id)
+#             send_long_message(bot, message, result)
+#         else:
+#             bot.reply_to(message, get_user_not_found_message(username))
+#     except Exception as e:
+#         log_error(f"handle_get_user_score_history {str(e)}")
 
 
 # Обработчик всех сообщений

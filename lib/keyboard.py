@@ -35,6 +35,9 @@ def bot_keyboard_buttons_handler(call, bot):
             chat_settings(call, bot)
 
         # Сопоставление для управления действиями менеджеров
+        case action if action.startswith('wm_'):
+            view_all_managers(call, bot)
+
         case action if action.startswith('em_'):
             select_action_with_managers(call, bot)
 
@@ -64,7 +67,7 @@ def get_settings_keyboard_markup():
 
     button1 = InlineKeyboardButton("Настройки чатов", callback_data='chats')
     button2 = InlineKeyboardButton("Изменение Е-баллов", callback_data='aodd')
-    button3 = InlineKeyboardButton("Выбор менеджеров чата", callback_data='smch')
+    button3 = InlineKeyboardButton("Менеджеры чата", callback_data='smch')
 
     markup.add(button1)
     markup.add(button2)
@@ -84,9 +87,11 @@ def get_managers_keyboard_markup(chat_id):
 
     button1 = InlineKeyboardButton("Убрать менеджеров", callback_data=f"dm_{chat_id}")
     button2 = InlineKeyboardButton("Добавить менеджера", callback_data=f"am_{chat_id}")
+    button3 = InlineKeyboardButton("Просмотр менеджеров", callback_data=f"wm_{chat_id}")
 
     markup.add(button1)
     markup.add(button2)
+    markup.add(button3)
 
     return markup
 
@@ -411,3 +416,41 @@ def select_chat_message(call, bot, prefix, should_be_manager):
     else:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=get_user_no_chats_message())
+
+
+def view_all_managers(call, bot):
+    """
+    Выводит администраторов и менеджеров чата
+
+    :param call:
+    :param bot:
+    :return:
+    """
+    action = call.data
+    chat_id = action[3:]
+    chat = session.query(Chat).filter_by(chat_id=chat_id).first()
+
+    if 'all' == chat.send_few_carma:
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                              text='В этом чате включен режим без менеджеров!')
+    else:
+        # Получаем администраторов чата
+        admins = bot.get_chat_administrators(chat_id)
+        admin_list = [f"{admin.user.username or 'нет ника'}" for admin in admins]
+        admin_ids = [admin.user.id for admin in admins]
+
+        # Получаем менеджеров и исключаем администраторов
+        managers = session.query(User).filter_by(chat_id=chat_id, is_manager=True).all()
+        managers = [manager for manager in managers if manager.id not in admin_ids]
+        manager_list = [f"{manager.username}" for manager in managers]
+
+        # Формируем текст сообщения
+        message_text = "Администраторы чата:\n" + '\n'.join(admin_list) + "\n\nМенеджеры чата:\n"
+        if manager_list:
+            message_text += '\n'.join(manager_list)
+        else:
+            message_text += "Нет менеджеров."
+
+        # Обновляем сообщение в чате
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                              text=message_text)
